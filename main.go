@@ -1,11 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
 
-	img "github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	ttf "github.com/veandco/go-sdl2/ttf"
 )
@@ -14,12 +14,12 @@ func keepAlive(duration *time.Duration) {
 	start := time.Now()
 	running := true
 	for running {
+		if duration != nil && time.Since(start) > *duration {
+			fmt.Printf("time passed: %s > %s\n", time.Since(start), *duration)
+			running = false
+			break
+		}
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-			if duration != nil && time.Since(start) > *duration {
-				println("Time up")
-				running = false
-				break
-			}
 			switch event.(type) {
 			case *sdl.QuitEvent:
 				println("Quit")
@@ -56,13 +56,20 @@ func run() error {
 	d := 2 * time.Second
 	keepAlive(&d)
 
-	if err := drawBackground(renderer); err != nil {
-		return fmt.Errorf("could not draw background: %v", err)
+	s, err := newScene(renderer)
+	if err != nil {
+		return fmt.Errorf("could not create scene: %v", err)
 	}
+	defer s.destroy()
 
-	keepAlive(nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	return nil
+	time.AfterFunc(5*time.Second, func() {
+		cancel()
+	})
+
+	return <-s.run(ctx, renderer)
 }
 
 func drawTitle(renderer *sdl.Renderer) error {
@@ -92,22 +99,6 @@ func drawTitle(renderer *sdl.Renderer) error {
 
 	renderer.Present()
 
-	return nil
-}
-
-func drawBackground(r *sdl.Renderer) error {
-	r.Clear()
-
-	t, err := img.LoadTexture(r, "res/jpg/Mountain1.jpg")
-	if err != nil {
-		return fmt.Errorf("could not load image: %v", err)
-	}
-
-	if err := r.Copy(t, nil, nil); err != nil {
-		return fmt.Errorf("could not draw background")
-	}
-
-	r.Present()
 	return nil
 }
 
