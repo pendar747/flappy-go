@@ -1,8 +1,8 @@
 package main
 
 import (
-	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/pkg/errors"
@@ -11,9 +11,8 @@ import (
 )
 
 type scene struct {
-	time  int
-	bg    *sdl.Texture
-	birds []*sdl.Texture
+	bg   *sdl.Texture
+	bird *bird
 }
 
 func newScene(r *sdl.Renderer) (*scene, error) {
@@ -22,47 +21,42 @@ func newScene(r *sdl.Renderer) (*scene, error) {
 		return nil, fmt.Errorf("could not load image: %v", err)
 	}
 
-	birds := make([]*sdl.Texture, 4)
-	for i := 0; i < 4; i++ {
-		bird, err := img.LoadTexture(r, fmt.Sprintf("res/PNG/Frame-%d.png", i+1))
-		if err != nil {
-			return nil, fmt.Errorf("could not load image: %v", err)
-		}
-		birds[i] = bird
+	bird, err := newBird(r)
+	if err != nil {
+		return nil, err
 	}
 
-	return &scene{bg: bg, birds: birds}, nil
+	return &scene{bg: bg, bird: bird}, nil
 }
 
 func (s *scene) paint(r *sdl.Renderer) error {
-	s.time++
 	r.Clear()
 
 	if err := r.Copy(s.bg, nil, nil); err != nil {
 		return fmt.Errorf("could not draw background")
 	}
 
-	rect := &sdl.Rect{W: 50, H: 43, X: 10, Y: 300 - 43/2}
-
-	i := s.time % len(s.birds)
-	if err := r.Copy(s.birds[i], nil, rect); err != nil {
-		return fmt.Errorf("could not draw bird")
+	err := s.bird.paint(r)
+	if err != nil {
+		return err
 	}
 
 	r.Present()
 	return nil
 }
 
-func (s *scene) run(ctx context.Context, r *sdl.Renderer) chan error {
+func (s *scene) run(events <-chan sdl.Event, r *sdl.Renderer) chan error {
 	errc := make(chan error)
 
 	go func() {
 		defer close(errc)
-		for range time.Tick(100 * time.Millisecond) {
+		tick := time.Tick(100 * time.Millisecond)
+		done := false
+		for !done {
 			select {
-			case <-ctx.Done():
-				return
-			default:
+			case e := <-events:
+				done = s.handleEvent(e)
+			case <-tick:
 				if err := s.paint(r); err != nil {
 					errc <- errors.Wrap(err, "could not paint scene")
 				}
@@ -73,6 +67,29 @@ func (s *scene) run(ctx context.Context, r *sdl.Renderer) chan error {
 	return errc
 }
 
+func (s *scene) handleEvent(event sdl.Event) bool {
+	switch e := event.(type) {
+	case *sdl.QuitEvent:
+		return true
+	case *sdl.MouseButtonEvent:
+		s.bird.jump()
+		return false
+	default:
+		log.Printf("unknown event %T", e)
+	}
+	return false
+}
+
 func (s *scene) destroy() error {
-	return s.bg.Destroy()
+	err := s.bg.Destroy()
+	if err != nil {
+		return err
+	}
+
+	err = s.bg.Destroy()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"context"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -62,14 +62,31 @@ func run() error {
 	}
 	defer s.destroy()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	events := make(chan sdl.Event)
+	errc := s.run(events, renderer)
 
-	time.AfterFunc(5*time.Second, func() {
-		cancel()
-	})
+	_ = errc
 
-	return <-s.run(ctx, renderer)
+	running := true
+	for running {
+		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
+			events <- event
+			log.Printf("received event is %T\n", event)
+			// TODO: fix bug with handling error
+			// if err := <-errc; err != nil {
+			// log.Printf("error rendering scene: %s", err.Error())
+			// running = false
+			// return err
+			// }
+			switch event.(type) {
+			case *sdl.QuitEvent:
+				log.Print("Quit\n")
+				running = false
+			}
+		}
+	}
+
+	return nil
 }
 
 func drawTitle(renderer *sdl.Renderer) error {
