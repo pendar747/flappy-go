@@ -106,9 +106,9 @@ func (b *bird) touch(p *pipe) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
-	heightConstraint := b.y+b.h < (600 - p.h)
+	heightConstraint := b.y+b.h < p.h
 	if p.inverted {
-		heightConstraint = b.y+b.h > (600 - p.h)
+		heightConstraint = (600 - b.y + b.h) < p.h
 	}
 	if b.x+b.w > p.x && heightConstraint && b.x+b.w < p.x+p.w {
 		log.Printf("bird touched the pipe!!")

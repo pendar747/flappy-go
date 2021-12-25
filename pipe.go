@@ -2,78 +2,119 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"sync"
+	"time"
 
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
+type pipes struct {
+	mu      sync.RWMutex
+	texture *sdl.Texture
+	speed   int32
+
+	pipes []*pipe
+}
+
 type pipe struct {
 	mu       sync.RWMutex
 	x        int32
 	h        int32
-	speed    int32
-	inverted bool
 	w        int32
-
-	texture *sdl.Texture
+	inverted bool
 }
 
-func newPipe(r *sdl.Renderer) (*pipe, error) {
+func newPipes(r *sdl.Renderer) (ps *pipes, err error) {
 	texture, err := img.LoadTexture(r, "res/OldPipe.webp")
 	if err != nil {
 		return nil, fmt.Errorf("could not load image: %v", err)
 	}
 
-	return &pipe{
-		x:        400,
-		w:        52,
-		h:        300,
-		speed:    8,
-		texture:  texture,
-		inverted: true,
-	}, nil
-}
-
-func (p *pipe) destroy() error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	return p.texture.Destroy()
-}
-
-func (p *pipe) paint(r *sdl.Renderer) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	rect := &sdl.Rect{W: p.w, H: p.h, X: p.x, Y: (600 - p.h)}
-	if p.inverted {
-		rect.Y = 0
+	ps = &pipes{
+		texture: texture,
+		speed:   8,
 	}
 
-	if p.inverted {
-		if err := r.CopyEx(p.texture, nil, rect, 0, nil, sdl.FLIP_VERTICAL); err != nil {
-			return fmt.Errorf("could not draw pipe")
+	go func() {
+		for {
+			pipe := newPipe()
+			ps.pipes = append(ps.pipes, pipe)
+			time.Sleep(time.Second * 2)
 		}
-	} else {
-		if err := r.Copy(p.texture, nil, rect); err != nil {
-			return fmt.Errorf("could not draw pipe")
+	}()
+
+	return ps, nil
+}
+
+func newPipe() *pipe {
+	return &pipe{
+		x:        800,
+		w:        52,
+		h:        rand.Int31n(400),
+		inverted: rand.Int31()%2 == 0,
+	}
+}
+
+func (ps *pipes) destroy() error {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+
+	return ps.texture.Destroy()
+}
+
+func (ps *pipes) paint(r *sdl.Renderer) error {
+	ps.mu.RLock()
+	defer ps.mu.RUnlock()
+
+	for _, p := range ps.pipes {
+		p.mu.RLock()
+
+		rect := &sdl.Rect{W: p.w, H: p.h, X: p.x, Y: (600 - p.h)}
+		if p.inverted {
+			rect.Y = 0
 		}
+
+		if p.inverted {
+			if err := r.CopyEx(ps.texture, nil, rect, 0, nil, sdl.FLIP_VERTICAL); err != nil {
+				return fmt.Errorf("could not draw pipe")
+			}
+		} else {
+			if err := r.Copy(ps.texture, nil, rect); err != nil {
+				return fmt.Errorf("could not draw pipe")
+			}
+		}
+
+		p.mu.RUnlock()
 	}
 
 	return nil
 }
 
-func (p *pipe) restart() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (ps *pipes) restart() {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
 
-	p.x = 400
+	ps.pipes = nil
 }
 
-func (p *pipe) update() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (ps *pipes) update() {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
 
-	p.x -= p.speed
+	for _, p := range ps.pipes {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		p.x -= ps.speed
+	}
+}
+
+func (ps *pipes) touch(b *bird) {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+
+	for _, p := range ps.pipes {
+		b.touch(p)
+	}
 }
