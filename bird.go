@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"sync"
 
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
@@ -13,8 +15,12 @@ const jumpSpeed = 10
 type bird struct {
 	time     int
 	textures []*sdl.Texture
+	dead     bool
+	mu       sync.RWMutex
 
-	y, speed float64
+	x, y, w, h int32
+
+	speed float64
 }
 
 func newBird(r *sdl.Renderer) (*bird, error) {
@@ -27,19 +33,26 @@ func newBird(r *sdl.Renderer) (*bird, error) {
 		textures[i] = texture
 	}
 
-	return &bird{textures: textures, y: 300, speed: 1}, nil
+	return &bird{textures: textures, y: 300, speed: 1, x: 10, w: 50, h: 43}, nil
+}
+
+func (b *bird) update() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	b.time++
+	b.y -= int32(b.speed)
+	b.speed += gravity
+	if b.y < 43 {
+		b.dead = true
+	}
 }
 
 func (b *bird) paint(r *sdl.Renderer) error {
-	b.time++
-	b.y -= b.speed
-	b.speed += gravity
-	if b.y < 43 {
-		b.speed = -10
-		b.y = 43
-	}
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 
-	rect := &sdl.Rect{W: 50, H: 43, X: 10, Y: (600 - int32(b.y))}
+	rect := &sdl.Rect{W: b.w, H: b.h, X: b.x, Y: (600 - int32(b.y) - b.h)}
 
 	i := b.time % len(b.textures)
 	if err := r.Copy(b.textures[i], nil, rect); err != nil {
@@ -50,11 +63,55 @@ func (b *bird) paint(r *sdl.Renderer) error {
 }
 
 func (b *bird) jump() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	b.speed = -1 * jumpSpeed
 }
 
-func (b *bird) destroy() {
+func (b *bird) destroy() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	for _, texture := range b.textures {
-		texture.Destroy()
+		err := texture.Destroy()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (b *bird) isDead() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.dead
+}
+
+func (b *bird) restart() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	b.y = 300
+	b.speed = 0
+	b.dead = false
+}
+
+func (b *bird) touch(p *pipe) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	heightConstraint := b.y+b.h < (600 - p.h)
+	if p.inverted {
+		heightConstraint = b.y+b.h > (600 - p.h)
+	}
+	if b.x+b.w > p.x && heightConstraint && b.x+b.w < p.x+p.w {
+		log.Printf("bird touched the pipe!!")
+		b.dead = true
 	}
 }
