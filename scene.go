@@ -70,7 +70,7 @@ func (s *scene) run(events <-chan sdl.Event, r *sdl.Renderer) chan error {
 			case <-tick:
 				s.update()
 				if s.bird.isDead() {
-					drawTitle(r, "Game over")
+					drawGameOver(r)
 					time.Sleep(2 * time.Second)
 					s.restart()
 				}

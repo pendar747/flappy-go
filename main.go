@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	ttf "github.com/veandco/go-sdl2/ttf"
 )
@@ -91,12 +92,66 @@ func run() error {
 	return nil
 }
 
-func drawTitle(renderer *sdl.Renderer, text string) error {
-	renderer.Clear()
+func drawTitle(r *sdl.Renderer, text string) error {
+	r.Clear()
+	texture, textW, textH, err := getTextTexture(r, text)
+	if err != nil {
+		return err
+	}
+	textRect := &sdl.Rect{
+		X: WINDOW_WIDTH/2 - textW/2,
+		Y: WINDOW_HEIGHT/2 - textH/2,
+		W: textW,
+		H: textH,
+	}
+	err = r.Copy(texture, nil, textRect)
+	r.Present()
+	return err
+}
 
+func drawGameOver(r *sdl.Renderer) error {
+	r.Clear()
+	s, err := img.Load("res/PNG/Frame-3.png")
+	if err != nil {
+		return fmt.Errorf("could not load surface %v", err)
+	}
+	texture, err := r.CreateTextureFromSurface(s)
+	if err != nil {
+		return fmt.Errorf("could not load image: %v", err)
+	}
+
+	w := int32(200)
+	h := w * (s.W / s.H)
+	rect := &sdl.Rect{
+		W: w,
+		H: h,
+		X: WINDOW_WIDTH/2 - w/2,
+		Y: WINDOW_HEIGHT/3 - h/2,
+	}
+	err = r.CopyEx(texture, nil, rect, 0, nil, sdl.FLIP_VERTICAL)
+	if err != nil {
+		return fmt.Errorf("could not render game over image: %v", err)
+	}
+
+	texture, textW, textH, err := getTextTexture(r, "Game over")
+	if err != nil {
+		return err
+	}
+	textRect := &sdl.Rect{
+		X: WINDOW_WIDTH/2 - textW/2,
+		Y: rect.Y + rect.H + 10,
+		W: textW,
+		H: textH,
+	}
+	err = r.Copy(texture, nil, textRect)
+	r.Present()
+	return err
+}
+
+func getTextTexture(r *sdl.Renderer, text string) (texture *sdl.Texture, w, h int32, err error) {
 	font, err := ttf.OpenFont("res/fonts/Pushster-Regular.ttf", 120)
 	if err != nil {
-		return fmt.Errorf("could not open font: %v", err)
+		return nil, 0, 0, fmt.Errorf("could not open font: %v", err)
 	}
 
 	s, err := font.RenderUTF8Blended(text, sdl.Color{
@@ -105,26 +160,15 @@ func drawTitle(renderer *sdl.Renderer, text string) error {
 		B: 156,
 	})
 	if err != nil {
-		return fmt.Errorf("could not render title: %v", err)
+		return nil, 0, 0, fmt.Errorf("could not render title: %v", err)
 	}
 
-	texture, err := renderer.CreateTextureFromSurface(s)
+	texture, err = r.CreateTextureFromSurface(s)
 	if err != nil {
-		return fmt.Errorf("could not create texture: %v", err)
-	}
-	rect := &sdl.Rect{
-		W: s.W,
-		H: s.H,
-		X: WINDOW_WIDTH/2 - (s.W / 2),
-		Y: WINDOW_HEIGHT/2 - (s.H / 2),
-	}
-	if err := renderer.Copy(texture, nil, rect); err != nil {
-		return fmt.Errorf("could not render texture: %v", err)
+		return nil, 0, 0, fmt.Errorf("could not create texture: %v", err)
 	}
 
-	renderer.Present()
-
-	return nil
+	return texture, s.W, s.H, nil
 }
 
 func main() {
