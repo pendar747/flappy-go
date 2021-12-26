@@ -61,7 +61,7 @@ func (s *scene) run(events <-chan sdl.Event, r *sdl.Renderer) chan error {
 
 	go func() {
 		defer close(errc)
-		tick := time.Tick(100 * time.Millisecond)
+		tick := time.Tick(10 * time.Millisecond)
 		done := false
 		for !done {
 			select {
@@ -71,6 +71,7 @@ func (s *scene) run(events <-chan sdl.Event, r *sdl.Renderer) chan error {
 				s.update()
 				if s.bird.isDead() {
 					drawTitle(r, "Game over")
+					time.Sleep(2 * time.Second)
 					s.restart()
 				}
 				if err := s.paint(r); err != nil {

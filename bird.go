@@ -9,8 +9,8 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-const gravity = 3
-const jumpSpeed = 10
+const gravity = 0.1
+const jumpSpeed = 3
 
 type bird struct {
 	time     int
@@ -54,7 +54,7 @@ func (b *bird) paint(r *sdl.Renderer) error {
 
 	rect := &sdl.Rect{W: b.w, H: b.h, X: b.x, Y: (600 - int32(b.y) - b.h)}
 
-	i := b.time % len(b.textures)
+	i := (b.time / 10) % len(b.textures)
 	if err := r.Copy(b.textures[i], nil, rect); err != nil {
 		return fmt.Errorf("could not draw bird")
 	}

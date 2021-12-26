@@ -24,7 +24,6 @@ func keepAlive(duration *time.Duration) {
 			case *sdl.QuitEvent:
 				println("Quit")
 				running = false
-				break
 			}
 		}
 	}

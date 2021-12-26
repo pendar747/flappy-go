@@ -34,14 +34,14 @@ func newPipes(r *sdl.Renderer) (ps *pipes, err error) {
 
 	ps = &pipes{
 		texture: texture,
-		speed:   8,
+		speed:   4,
 	}
 
 	go func() {
 		for {
 			pipe := newPipe()
 			ps.pipes = append(ps.pipes, pipe)
-			time.Sleep(time.Second * 2)
+			time.Sleep(time.Second)
 		}
 	}()
 
