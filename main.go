@@ -10,6 +10,9 @@ import (
 	ttf "github.com/veandco/go-sdl2/ttf"
 )
 
+const WINDOW_WIDTH = 800
+const WINDOW_HEIGHT = 600
+
 func keepAlive(duration *time.Duration) {
 	start := time.Now()
 	running := true
@@ -40,7 +43,7 @@ func run() error {
 		return fmt.Errorf("could not initialize TTF: %v", err)
 	}
 
-	window, renderer, err := sdl.CreateWindowAndRenderer(800, 600, sdl.WINDOW_SHOWN)
+	window, renderer, err := sdl.CreateWindowAndRenderer(WINDOW_WIDTH, WINDOW_HEIGHT, sdl.WINDOW_SHOWN)
 	// w2, err := sdl.CreateWindow("test", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
 	// 	800, 600, sdl.WINDOW_SHOWN)
 	if err != nil {
@@ -91,12 +94,12 @@ func run() error {
 func drawTitle(renderer *sdl.Renderer, text string) error {
 	renderer.Clear()
 
-	font, err := ttf.OpenFont("res/fonts/YujiHentaiganaAkari-Regular.ttf", 20)
+	font, err := ttf.OpenFont("res/fonts/Pushster-Regular.ttf", 120)
 	if err != nil {
 		return fmt.Errorf("could not open font: %v", err)
 	}
 
-	s, err := font.RenderUTF8Solid(text, sdl.Color{
+	s, err := font.RenderUTF8Blended(text, sdl.Color{
 		R: 73,
 		G: 229,
 		B: 156,
@@ -109,7 +112,13 @@ func drawTitle(renderer *sdl.Renderer, text string) error {
 	if err != nil {
 		return fmt.Errorf("could not create texture: %v", err)
 	}
-	if err := renderer.Copy(texture, nil, nil); err != nil {
+	rect := &sdl.Rect{
+		W: s.W,
+		H: s.H,
+		X: WINDOW_WIDTH/2 - (s.W / 2),
+		Y: WINDOW_HEIGHT/2 - (s.H / 2),
+	}
+	if err := renderer.Copy(texture, nil, rect); err != nil {
 		return fmt.Errorf("could not render texture: %v", err)
 	}
 
